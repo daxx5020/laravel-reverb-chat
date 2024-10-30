@@ -34,6 +34,21 @@ new class extends Component
                         {{ __('Dashboard') }}
                     </x-nav-link>
                 </div>
+
+                @if(auth()->user()->role == 'buyer') 
+                <div class="hidden space-x-8 sm:-my-px sm:ms-10 sm:flex">
+                    <x-nav-link :href="route('test.services')" :active="request()->routeIs('test.services')" wire:navigate>
+                        {{ __('Services') }}
+                    </x-nav-link>
+                </div>
+                @endif
+
+                <div class="hidden space-x-8 sm:-my-px sm:ms-10 sm:flex">
+                    <x-nav-link :href="route('test.chats')" :active="request()->routeIs('test.chats')" wire:navigate>
+                        {{ __('Chats') }}
+                    </x-nav-link>
+                </div>
+
             </div>
 
             <!-- Settings Dropdown -->

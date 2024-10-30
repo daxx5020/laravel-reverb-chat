@@ -2,16 +2,14 @@
 
 namespace App\Livewire;
 
-use App\Events\NewMessageEvent;
 use App\Models\Chat;
 use App\Models\Service;
-use App\Models\User;
 use App\Services\ChatService;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\On;
 use Livewire\Component;
 
-class ChatComponent extends Component
+class SellerChatComponent extends Component
 {
     public $message = "";
     public $chats = [];
@@ -22,21 +20,13 @@ class ChatComponent extends Component
     private ChatService $chatService;
     private Chat $chat;
 
-    public function mount(Service $service, ChatService $chatService)
+    public function mount(Chat $chat, ChatService $chatService)
     {
         // Assigning objects to private properties
-        $this->service = $service;
         $this->chatService = $chatService;
+        $this->chat = $chat;
 
-        // Use IDs as public properties for Livewire compatibility
-        $this->serviceId = $service->id;
-        
-        $this->chat = $this->chatService->findChat(
-            $service->id,
-            auth()->id(),
-            $service->user_id
-        );
-
+        $this->service = $this->chat->service;
         $this->chatId = $this->chat->id;
         $this->chats = $this->chatService->getMessages($this->chatId)->toArray();
     }
@@ -59,9 +49,10 @@ class ChatComponent extends Component
             $this->chats[] = $data['message'];
         }
     }
-
+    
     #[Layout('layouts.app')]
-    public function render() {
-        return view('livewire.chat-component');
+    public function render()
+    {
+        return view('livewire.seller-chat-component');
     }
 }
