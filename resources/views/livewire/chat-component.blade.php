@@ -39,7 +39,20 @@
 
     <!-- Chat Messages -->
     <div class="px-4 space-y-4 h-[400px] overflow-y-auto border-t pt-4" id="chat-messages">
+
+        @php($chatDates = [])
+
         @forelse ($chats as $chat)
+
+            @php($date = \Carbon\Carbon::parse($chat['created_at'])->format('d M Y'))
+
+            @if (!in_array($date, $chatDates) || count($chatDates) == 0)
+                <div class="text-center text-gray-500 text-xs mb-2 bg-gray-100 p-1 rounded-xl w-[90px] mx-auto">
+                    {{ $date }}
+                </div>
+                @php($chatDates[] = $date)
+            @endif
+
             <div @class([
                 'max-w-[85%] p-3 rounded-2xl break-words',
                 auth()->id() == $chat['sender_id'] 
