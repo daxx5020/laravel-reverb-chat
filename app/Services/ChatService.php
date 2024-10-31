@@ -71,4 +71,55 @@ class ChatService
     {
         return Message::where('chat_id', $chatId)->get();
     }
+
+
+    /**
+     * APIS
+    */
+    
+
+    public function findChatApi($serviceId, $buyerId, $sellerId): Chat
+    {
+        $chat = Chat::where('service_id', $serviceId)
+        ->where('buyer_id', $buyerId)
+        ->where('seller_id', $sellerId)
+        ->first();
+
+        if ($chat) {
+            return $chat;
+        }
+
+        return $this->createChat($serviceId, $buyerId, $sellerId);
+    }
+
+    public function createChatApi($serviceId, $buyerId, $sellerId): Chat 
+    {
+        return Chat::create([
+            'service_id' => $serviceId,
+            'buyer_id' => $buyerId,
+            'seller_id' => $sellerId
+        ]);
+    }
+
+    public function sendMessageApi($chatId, $senderId, $messageContent)
+    {
+        $message = Message::create([
+            'chat_id' => $chatId,
+            'sender_id' => $senderId,
+            'message' => $messageContent
+        ]);
+    
+        event(new NewMessageEvent($message));
+    
+        return $message;
+    }
+
+    public function getMessagesApi($chatId)
+    {
+        return Message::where('chat_id', $chatId)
+        ->orderBy('created_at', 'desc')
+        ->select('sender_id', 'message', 'created_at')
+        ->paginate(15);
+
+    }
 }
