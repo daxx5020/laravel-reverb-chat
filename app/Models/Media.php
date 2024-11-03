@@ -41,7 +41,7 @@ class Media extends Model
             default => 'media',
         };
 
-        return asset("storage/{$directory}/" . $this->file_path);
+        return asset("storage/" . $this->file_path);
     }
 
     /**
@@ -55,7 +55,7 @@ class Media extends Model
     {
         // Determine directory based on file type
         $directory = match ($fileType) {
-            'image' => '`chat_images`',
+            'image' => 'chat_images',
             'video' => 'chat_videos',
             'document' => 'chat_documents',
             default => 'media',
