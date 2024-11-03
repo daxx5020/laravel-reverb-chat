@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use App\Models\Chat;
 use App\Models\Service;
 use App\Models\User;
+use App\Models\Media;
 use App\Services\ChatService;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Auth;
@@ -79,23 +80,48 @@ class ChatController extends Controller
         return response()->json($chat, 200);
     }
 
-    public function sendMessage(Request $request){
+    public function sendMessage(Request $request)
+    {
         $chatId = $request->input('chat_id');
         $senderId = $request->input('sender_id');
         $messageContent = $request->input('message');
-        $imagePath = null;
 
-        // Check if the request has an image file and store it
-        if ($request->hasFile('image_path')) {
-            $image = $request->file('image_path');
-            $imagePath = $image->store('chat_images', 'public');
+        $mediaPaths = [];
+
+        if ($request->hasFile('media')) {
+            $files = is_array($request->file('media')) ? $request->file('media') : [$request->file('media')];
+            foreach ($files as $file) {
+                $fileType = $file->getMimeType();
+                $fileExtension = $file->getClientOriginalExtension();
+
+                // Determine the media type
+                if (str_starts_with($fileType, 'image/')) {
+                    $mediaType = 'image';
+                } elseif (str_starts_with($fileType, 'video/')) {
+                    $mediaType = 'video';
+                } elseif (in_array($fileExtension, ['pdf', 'doc', 'docx'])) {
+                    $mediaType = 'document';
+                } else {
+                    continue; // Skip unsupported file types
+                }
+
+                // Store the file and get the path
+                $storedPath = Media::storeFile($file, $mediaType);
+                $mediaPaths[] = [
+                    'file_path' => $storedPath,
+                    'file_type' => $mediaType,
+                    'mime_type' => $fileType,
+                    'size' => $file->getSize(),
+                ];
+            }
         }
 
         // Call the service to handle the message storage
-        $message = $this->chatService->sendMessageApi($chatId, $senderId, $messageContent, $imagePath);
+        $message = $this->chatService->sendMessageApi($chatId, $senderId, $messageContent, $mediaPaths);
 
         return response()->json($message, 201);
     }
+
 
     public function chatList(Request $request){
         $userId = $request->input('user_id');
@@ -109,15 +135,48 @@ class ChatController extends Controller
         return response()->json($chats, 200);
     }
 
-    public function getMessages(Request $request){
+    // public function getMessages(Request $request){
+    //     $chatId = $request->input('chat_id');
+    //     $messages = $this->chatService->getMessagesApi($chatId);
+
+    //     $formattedMessages = $messages->getCollection()->transform(function ($message) {
+    //         return [
+    //             'sender_id' => $message->sender_id,
+    //             'message' => $message->message,
+    //             'created_at' => $message->created_at->toIso8601String(),
+    //         ];
+    //     });
+
+    //     return response()->json([
+    //         'current_page' => $messages->currentPage(),
+    //         'data' => $formattedMessages,
+    //         'last_page' => $messages->lastPage(),
+    //         'per_page' => $messages->perPage(),
+    //         'total' => $messages->total(),
+    //     ], 200);
+    // }
+
+    public function getMessages(Request $request) {
         $chatId = $request->input('chat_id');
+        // Get messages with media relationships
         $messages = $this->chatService->getMessagesApi($chatId);
 
-        $formattedMessages = $messages->getCollection()->transform(function ($message) {
+        $formattedMessages = $messages->transform(function ($message) {
+            // Format media for the response
+            $media = $message->media->map(function ($mediaItem) {
+                return [
+                    'file_path' => $mediaItem->url,
+                    'file_type' => $mediaItem->file_type,
+                    'mime_type' => $mediaItem->mime_type,
+                    'size' => $mediaItem->size,
+                ];
+            });
+
             return [
                 'sender_id' => $message->sender_id,
                 'message' => $message->message,
                 'created_at' => $message->created_at->toIso8601String(),
+                'media' => $media, // Include media in the response
             ];
         });
 
@@ -129,4 +188,5 @@ class ChatController extends Controller
             'total' => $messages->total(),
         ], 200);
     }
+
 }

@@ -20,7 +20,6 @@ class Message extends Model
         'sender_id',
         'message',
         'read_at',
-        'image_path'
     ];
 
     /**
@@ -46,5 +45,10 @@ class Message extends Model
     public function getImageUrlAttribute()
     {
         return $this->image_path ? asset("storage/{$this->image_path}") : null;
+    }
+
+    public function media()
+    {
+        return $this->morphMany(Media::class, 'mediaable');
     }
 }

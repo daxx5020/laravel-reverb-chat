@@ -14,19 +14,12 @@
 
     <!-- Service Details -->
     <div class="mx-4 mb-4 p-4 bg-gray-50 rounded-xl">
-        <!-- Service Name -->
         <h6 class="text-lg font-semibold text-gray-900">{{ $service->name }}</h6>
-
-        <!-- Description -->
         <p class="text-gray-600 mt-1">{{ Str::limit($service->description, 60) }}</p>
-
-        <!-- Seller Information and Price -->
         <div class="mt-3 flex justify-between items-center">
             <div class="flex items-center space-x-2">
                 <div class="w-8 h-8 rounded-full bg-indigo-100 text-gray-700/30 flex items-center justify-center">
-                    <span class="text-sm font-medium text-primary">
-                        {{ substr($service->user->name, 0, 2) }}
-                    </span>
+                    <span class="text-sm font-medium text-primary">{{ substr($service->user->name, 0, 2) }}</span>
                 </div>
                 <div>
                     <p class="text-sm text-gray-600">Seller</p>
@@ -62,23 +55,41 @@
                 <p class="text-sm">{{ $chat['message'] }}</p>
             @endif
 
-            @if($chat['image_path'])
-                <img src="{{ Storage::url($chat['image_path']) }}" alt="Chat Image" class="mt-2 max-w-full h-auto rounded-lg">
+            @if(isset($chat['media']) && is_array($chat['media']) && count($chat['media']) > 0)
+                @foreach($chat['media'] as $mediaItem)
+                    @if (str_ends_with($mediaItem['file_path'], '.mp4') || str_ends_with($mediaItem['file_path'], '.webm'))
+                        <!-- Video Rendering -->
+                        <video controls class="mt-2 max-w-full h-auto rounded-lg">
+                            <source src="{{ asset('storage/' . $mediaItem['file_path']) }}" type="video/mp4">
+                            Your browser does not support the video tag.
+                        </video>
+                    @elseif (str_ends_with($mediaItem['file_path'], '.pdf'))
+                        <!-- PDF Rendering -->
+                        <iframe src="{{ asset('storage/' . $mediaItem['file_path']) }}" class="mt-2 max-w-full h-96" frameborder="0"></iframe>
+                        <p class="mt-2 text-sm text-gray-500">
+                            <a href="{{ asset('storage/' . $mediaItem['file_path']) }}" target="_blank" class="text-indigo-600 underline">Download PDF</a>
+                        </p>
+                    @else
+                        <!-- Image Rendering -->
+                        <img src="{{ asset('storage/' . $mediaItem['file_path']) }}" alt="Chat Media" class="mt-2 max-w-full h-auto rounded-lg">
+                    @endif
+                @endforeach
             @endif
 
             <span class="text-xs mt-1 opacity-70">{{ \Carbon\Carbon::parse($chat['created_at'])->format('g:i A') }}</span>
         </div>
-    @empty
-        <div class="flex flex-col items-center justify-center h-full text-gray-500">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mb-2 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-            </svg>
-            <p class="text-sm font-medium">No messages yet</p>
-            <p class="text-xs">Start the conversation!</p>
-        </div>
-    @endforelse
+        @empty
+            <div class="flex flex-col items-center justify-center h-full text-gray-500">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mb-2 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                </svg>
+                <p class="text-sm font-medium">No messages yet</p>
+                <p class="text-xs">Start the conversation!</p>
+            </div>
+        @endforelse
 
-    </div>
+        </div>
+
 
     <!-- Message Input -->
     <div class="p-4 border-t mt-4">
@@ -135,3 +146,4 @@
         });
     });
 </script>
+`

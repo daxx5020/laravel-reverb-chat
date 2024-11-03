@@ -70,8 +70,11 @@ class ChatService
     */
     public function getMessages($chatId)
     {
-        return Message::where('chat_id', $chatId)->get();
+        return Message::with('media') // Eager load media
+            ->where('chat_id', $chatId)
+            ->get();
     }
+
 
 
     /**
@@ -102,14 +105,26 @@ class ChatService
         ]);
     }
 
-    public function sendMessageApi($chatId, $senderId, $messageContent, $imagePath = null)
+    public function sendMessageApi($chatId, $senderId, $messageContent, $mediaPaths = [])
     {
+        // Create the message
         $message = Message::create([
             'chat_id' => $chatId,
             'sender_id' => $senderId,
             'message' => $messageContent,
-            'image_path' => $imagePath,
         ]);
+
+        // If there are media paths, associate them with the message
+        if (!empty($mediaPaths)) {
+            foreach ($mediaPaths as $mediaData) {
+                $message->media()->create([
+                    'file_path' => $mediaData['file_path'],
+                    'file_type' => $mediaData['file_type'],
+                    'mime_type' => $mediaData['mime_type'],
+                    'size' => $mediaData['size'],
+                ]);
+            }
+        }
 
         // Trigger the NewMessageEvent to broadcast the message in real-time
         event(new NewMessageEvent($message));
@@ -117,12 +132,13 @@ class ChatService
         return $message;
     }
 
+
     public function getMessagesApi($chatId)
     {
-        return Message::where('chat_id', $chatId)
-        ->orderBy('created_at', 'desc')
-        ->select('sender_id', 'message', 'created_at')
-        ->paginate(15);
-
+        return Message::with('media') // Eager load media
+            ->where('chat_id', $chatId)
+            ->orderBy('created_at', 'desc')
+            ->select( 'id', 'sender_id', 'message', 'created_at', 'chat_id') // Include chat_id if needed
+            ->paginate(15);
     }
 }

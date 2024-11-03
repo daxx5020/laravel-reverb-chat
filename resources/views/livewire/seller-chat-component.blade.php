@@ -14,19 +14,12 @@
 
     <!-- Service Details -->
     <div class="mx-4 mb-4 p-4 bg-gray-50 rounded-xl">
-        <!-- Service Name -->
         <h6 class="text-lg font-semibold text-gray-900">{{ $service->name }}</h6>
-
-        <!-- Description -->
         <p class="text-gray-600 mt-1">{{ Str::limit($service->description, 60) }}</p>
-
-        <!-- Seller Information and Price -->
         <div class="mt-3 flex justify-between items-center">
             <div class="flex items-center space-x-2">
                 <div class="w-8 h-8 rounded-full bg-indigo-100 text-gray-700/30 flex items-center justify-center">
-                    <span class="text-sm font-medium text-primary">
-                        {{ substr($service->user->name, 0, 2) }}
-                    </span>
+                    <span class="text-sm font-medium text-primary">{{ substr($service->user->name, 0, 2) }}</span>
                 </div>
                 <div>
                     <p class="text-sm text-gray-600">Seller</p>
@@ -39,23 +32,52 @@
 
     <!-- Chat Messages -->
     <div class="px-4 space-y-4 h-[400px] overflow-y-auto border-t pt-4" id="chat-messages">
+
+        @php($chatDates = [])
+
         @forelse ($chats as $chat)
-            <div @class([
-                'max-w-[85%] p-3 rounded-2xl break-words',
-                auth()->id() == $chat['sender_id']
-                    ? 'ml-auto bg-indigo-100 text-gray-700 rounded-br-sm'
-                    : 'bg-gray-100 text-gray-700 rounded-bl-sm'
-            ])>
-                @if($chat['message'])
-                    <p class="text-sm">{{ $chat['message'] }}</p>
-                @endif
+        @php($date = \Carbon\Carbon::parse($chat['created_at'])->format('d M Y'))
 
-                @if($chat['image_path'])
-                    <img src="{{ Storage::url($chat['image_path']) }}" alt="Chat Image" class="mt-2 max-w-full h-auto rounded-lg">
-                @endif
-
-                <span class="text-xs mt-1 opacity-70">{{ \Carbon\Carbon::parse($chat['created_at'])->format('g:i A') }}</span>
+        @if (!in_array($date, $chatDates) || count($chatDates) == 0)
+            <div class="text-center text-gray-500 text-xs mb-2 bg-gray-100 p-1 rounded-xl w-[90px] mx-auto">
+                {{ $date }}
             </div>
+            @php($chatDates[] = $date)
+        @endif
+
+        <div @class([
+            'max-w-[85%] p-3 rounded-2xl break-words',
+            auth()->id() == $chat['sender_id']
+                ? 'ml-auto bg-indigo-100 text-gray-700 rounded-br-sm'
+                : 'bg-gray-100 text-gray-700 rounded-bl-sm'
+        ])>
+            @if($chat['message'])
+                <p class="text-sm">{{ $chat['message'] }}</p>
+            @endif
+
+            @if(isset($chat['media']) && count($chat['media']) > 0)
+                @foreach($chat['media'] as $mediaItem)
+                    @if (str_ends_with($mediaItem['file_path'], '.mp4') || str_ends_with($mediaItem['file_path'], '.webm'))
+                        <!-- Video Rendering -->
+                        <video controls class="mt-2 max-w-full h-auto rounded-lg">
+                            <source src="{{ asset('storage/' . $mediaItem['file_path']) }}" type="video/mp4">
+                            Your browser does not support the video tag.
+                        </video>
+                    @elseif (str_ends_with($mediaItem['file_path'], '.pdf'))
+                        <!-- PDF Rendering -->
+                        <iframe src="{{ asset('storage/' . $mediaItem['file_path']) }}" class="mt-2 max-w-full h-96" frameborder="0"></iframe>
+                        <p class="mt-2 text-sm text-gray-500">
+                            <a href="{{ asset('storage/' . $mediaItem['file_path']) }}" target="_blank" class="text-indigo-600 underline">Download PDF</a>
+                        </p>
+                    @else
+                        <!-- Image Rendering -->
+                        <img src="{{ asset('storage/' . $mediaItem['file_path']) }}" alt="Chat Media" class="mt-2 max-w-full h-auto rounded-lg">
+                    @endif
+                @endforeach
+            @endif
+
+            <span class="text-xs mt-1 opacity-70">{{ \Carbon\Carbon::parse($chat['created_at'])->format('g:i A') }}</span>
+        </div>
         @empty
             <div class="flex flex-col items-center justify-center h-full text-gray-500">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mb-2 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -65,10 +87,11 @@
                 <p class="text-xs">Start the conversation!</p>
             </div>
         @endforelse
+
     </div>
 
     <!-- Message Input -->
-     <div class="p-4 border-t mt-4">
+    <div class="p-4 border-t mt-4">
         <form wire:submit.prevent="submitMessage" class="flex items-center gap-2">
             <input
                 wire:model="message"

@@ -5,10 +5,8 @@ namespace App\Livewire;
 use App\Events\NewMessageEvent;
 use App\Models\Chat;
 use App\Models\Service;
-use App\Models\User;
 use App\Services\ChatService;
 use Livewire\Attributes\Layout;
-use Livewire\Attributes\On;
 use Livewire\Component;
 use Livewire\WithFileUploads;
 
@@ -20,7 +18,7 @@ class ChatComponent extends Component
     public $chats = [];
     public $serviceId;
     public $chatId;
-    public $image;
+    public $image; // Use $image instead of $imagePath
 
     protected $rules = [
         'image' => 'nullable|image|max:1024', // 1MB Max
@@ -46,6 +44,7 @@ class ChatComponent extends Component
         );
 
         $this->chatId = $this->chat->id;
+        // Fetch messages along with their media
         $this->chats = $this->chatService->getMessages($this->chatId)->toArray();
     }
 
