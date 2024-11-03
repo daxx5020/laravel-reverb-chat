@@ -42,11 +42,18 @@
         @forelse ($chats as $chat)
             <div @class([
                 'max-w-[85%] p-3 rounded-2xl break-words',
-                auth()->id() == $chat['sender_id'] 
-                    ? 'ml-auto bg-indigo-100 text-gray-700 rounded-br-sm' 
+                auth()->id() == $chat['sender_id']
+                    ? 'ml-auto bg-indigo-100 text-gray-700 rounded-br-sm'
                     : 'bg-gray-100 text-gray-700 rounded-bl-sm'
             ])>
-                <p class="text-sm">{{ $chat['message'] }}</p>
+                @if($chat['message'])
+                    <p class="text-sm">{{ $chat['message'] }}</p>
+                @endif
+
+                @if($chat['image_path'])
+                    <img src="{{ Storage::url($chat['image_path']) }}" alt="Chat Image" class="mt-2 max-w-full h-auto rounded-lg">
+                @endif
+
                 <span class="text-xs mt-1 opacity-70">{{ \Carbon\Carbon::parse($chat['created_at'])->format('g:i A') }}</span>
             </div>
         @empty
@@ -61,15 +68,31 @@
     </div>
 
     <!-- Message Input -->
-    <div class="p-4 border-t mt-4">
+     <div class="p-4 border-t mt-4">
         <form wire:submit.prevent="submitMessage" class="flex items-center gap-2">
-            <input 
-                wire:model="message" 
-                type="text" 
+            <input
+                wire:model="message"
+                type="text"
                 placeholder="Type your message..."
                 class="flex-1 px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-full text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/30 transition-colors"
             >
-            <button 
+
+            <!-- File Input for Image Upload -->
+            <input
+                type="file"
+                wire:model="image"
+                class="hidden"
+                id="imageUpload"
+                accept="image/*"
+            >
+
+            <label for="imageUpload" class="cursor-pointer inline-flex items-center justify-center w-10 h-10 rounded-full bg-indigo-100 text-gray-700 hover:bg-indigo-100 hover:text-gray-700/90 transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16s1-2 4-2 5 1 9 1 6 3 6 3M4 4h16M4 8h16" />
+                </svg>
+            </label>
+
+            <button
                 type="submit"
                 class="inline-flex items-center justify-center w-10 h-10 rounded-full bg-indigo-100 text-gray-700 text-white hover:bg-indigo-100 text-gray-700/90 transition-colors rotate-90"
             >
@@ -78,6 +101,13 @@
                 </svg>
             </button>
         </form>
+
+        <!-- Display Uploaded Image Preview -->
+        @if ($image)
+            <div class="mt-2 text-center">
+                <img src="{{ $image->temporaryUrl() }}" class="max-w-xs rounded-lg mx-auto">
+            </div>
+        @endif
     </div>
 </div>
 

@@ -20,6 +20,7 @@ class Message extends Model
         'sender_id',
         'message',
         'read_at',
+        'image_path'
     ];
 
     /**
@@ -40,5 +41,10 @@ class Message extends Model
     public function isRead(): bool
     {
         return !is_null($this->read_at);
+    }
+
+    public function getImageUrlAttribute()
+    {
+        return $this->image_path ? asset("storage/{$this->image_path}") : null;
     }
 }

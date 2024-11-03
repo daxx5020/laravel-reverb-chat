@@ -10,13 +10,21 @@ use App\Services\ChatService;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\On;
 use Livewire\Component;
+use Livewire\WithFileUploads;
 
 class ChatComponent extends Component
 {
+    use WithFileUploads;
+
     public $message = "";
     public $chats = [];
     public $serviceId;
     public $chatId;
+    public $image;
+
+    protected $rules = [
+        'image' => 'nullable|image|max:1024', // 1MB Max
+    ];
 
     public Service $service;
     private ChatService $chatService;
@@ -30,7 +38,7 @@ class ChatComponent extends Component
 
         // Use IDs as public properties for Livewire compatibility
         $this->serviceId = $service->id;
-        
+
         $this->chat = $this->chatService->findChat(
             $service->id,
             auth()->id(),
@@ -40,10 +48,17 @@ class ChatComponent extends Component
         $this->chatId = $this->chat->id;
         $this->chats = $this->chatService->getMessages($this->chatId)->toArray();
     }
-    
+
     public function submitMessage(ChatService $chatService) {
         // Use the chatService for the message submission
-        $chatService->sendMessage($this->chatId, auth()->id(), $this->message);
+        if ($this->image) {
+            $imagePath = $this->image->store('chat_images', 'public');
+            $chatService->sendMessage($this->chatId, auth()->id(), null, $imagePath);
+            $this->image = null;
+        } else {
+            $chatService->sendMessage($this->chatId, auth()->id(), $this->message);
+        }
+
         $this->message = "";
     }
 

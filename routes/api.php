@@ -8,6 +8,10 @@ Route::get('/user', function (Request $request) {
     return $request->user();
 })->middleware('auth:sanctum');
 
+Route::post('/register', [ChatController::class, 'register']);
+Route::post('/login', [ChatController::class, 'login']);
+Route::middleware('auth:api')->get('/user', [ChatController::class, 'user']);
+
 
 Route::post('/create-chat', [ChatController::class, 'createChat']);
 Route::post('/send-message', [ChatController::class, 'sendMessage']);

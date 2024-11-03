@@ -39,7 +39,7 @@ class ChatService
     /**
      * Create a new chat
      */
-    public function createChat($serviceId, $buyerId, $sellerId): Chat 
+    public function createChat($serviceId, $buyerId, $sellerId): Chat
     {
         return Chat::create([
             'service_id' => $serviceId,
@@ -51,13 +51,14 @@ class ChatService
     /**
      * Send Message
     */
-    public function sendMessage($chatId, $senderId, $message)
+    public function sendMessage($chatId, $senderId, $message = null, $imagePath = null)
     {
         // Create the message
         $message = Message::create([
             'chat_id' => $chatId,
             'sender_id' => $senderId,
-            'message' => $message
+            'message' => $message,
+            'image_path' => $imagePath
         ]);
 
         // Trigger the NewMessageEvent
@@ -76,7 +77,7 @@ class ChatService
     /**
      * APIS
     */
-    
+
 
     public function findChatApi($serviceId, $buyerId, $sellerId): Chat
     {
@@ -92,7 +93,7 @@ class ChatService
         return $this->createChat($serviceId, $buyerId, $sellerId);
     }
 
-    public function createChatApi($serviceId, $buyerId, $sellerId): Chat 
+    public function createChatApi($serviceId, $buyerId, $sellerId): Chat
     {
         return Chat::create([
             'service_id' => $serviceId,
@@ -101,16 +102,18 @@ class ChatService
         ]);
     }
 
-    public function sendMessageApi($chatId, $senderId, $messageContent)
+    public function sendMessageApi($chatId, $senderId, $messageContent, $imagePath = null)
     {
         $message = Message::create([
             'chat_id' => $chatId,
             'sender_id' => $senderId,
-            'message' => $messageContent
+            'message' => $messageContent,
+            'image_path' => $imagePath,
         ]);
-    
+
+        // Trigger the NewMessageEvent to broadcast the message in real-time
         event(new NewMessageEvent($message));
-    
+
         return $message;
     }
 

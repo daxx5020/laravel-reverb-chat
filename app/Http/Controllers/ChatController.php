@@ -7,13 +7,65 @@ use App\Models\Chat;
 use App\Models\Service;
 use App\Models\User;
 use App\Services\ChatService;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Auth;
 
 class ChatController extends Controller
 {
     private ChatService $chatService;
-    
+
     public function __construct(ChatService $chatService){
         $this->chatService = $chatService;
+    }
+
+    public function register(Request $request)
+    {
+        // Validate the incoming request, including the 'role' field
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'email' => 'required|string|email|max:255|unique:users',
+            'password' => 'required|string|min:8|confirmed',
+            'role' => 'required|in:buyer,seller'
+        ]);
+
+        // Create the user with the validated data
+        $user = User::create([
+            'name' => $request->name,
+            'email' => $request->email,
+            'password' => Hash::make($request->password),
+            'role' => $request->role, // Store the role in the database
+        ]);
+
+        // Generate an access token for the user
+        $token = $user->createToken('AuthToken')->accessToken;
+
+        // Return the generated token in the response
+        return response()->json(['token' => $token], 201);
+    }
+
+
+    // User Login
+    public function login(Request $request)
+    {
+        $request->validate([
+            'email' => 'required|string|email',
+            'password' => 'required|string',
+        ]);
+
+        if (!Auth::attempt($request->only('email', 'password'))) {
+            return response()->json(['message' => 'Unauthorized'], 401);
+        }
+
+        $user = Auth::user();
+        $token = $user->createToken('AuthToken')->accessToken;
+
+        return response()->json(['token' => $token], 200);
+    }
+
+    // Get Authenticated User
+    public function user(Request $request)
+    {
+        return response()->json($request->user());
     }
 
     public function createChat(Request $request){
@@ -31,10 +83,18 @@ class ChatController extends Controller
         $chatId = $request->input('chat_id');
         $senderId = $request->input('sender_id');
         $messageContent = $request->input('message');
+        $imagePath = null;
 
-        $message = $this->chatService->sendMessage($chatId, $senderId, $messageContent);
+        // Check if the request has an image file and store it
+        if ($request->hasFile('image_path')) {
+            $image = $request->file('image_path');
+            $imagePath = $image->store('chat_images', 'public');
+        }
 
-        return response()->json($messageContent, 201);
+        // Call the service to handle the message storage
+        $message = $this->chatService->sendMessageApi($chatId, $senderId, $messageContent, $imagePath);
+
+        return response()->json($message, 201);
     }
 
     public function chatList(Request $request){
@@ -60,7 +120,7 @@ class ChatController extends Controller
                 'created_at' => $message->created_at->toIso8601String(),
             ];
         });
-    
+
         return response()->json([
             'current_page' => $messages->currentPage(),
             'data' => $formattedMessages,

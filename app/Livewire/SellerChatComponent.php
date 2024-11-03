@@ -8,13 +8,21 @@ use App\Services\ChatService;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\On;
 use Livewire\Component;
+use Livewire\WithFileUploads;
 
 class SellerChatComponent extends Component
 {
+    use WithFileUploads;
+
     public $message = "";
     public $chats = [];
     public $serviceId;
     public $chatId;
+    public $image;
+
+    protected $rules = [
+        'image' => 'nullable|image|max:1024',  // Set max size to 1MB
+    ];
 
     public Service $service;
     private ChatService $chatService;
@@ -30,10 +38,18 @@ class SellerChatComponent extends Component
         $this->chatId = $this->chat->id;
         $this->chats = $this->chatService->getMessages($this->chatId)->toArray();
     }
-    
+
     public function submitMessage(ChatService $chatService) {
         // Use the chatService for the message submission
-        $chatService->sendMessage($this->chatId, auth()->id(), $this->message);
+        if ($this->image) {
+            // Store the image and get the path
+            $imagePath = $this->image->store('chat_images', 'public');
+            $chatService->sendMessage($this->chatId, auth()->id(), null, $imagePath);  // Send image path
+            $this->image = null;  // Reset image
+        } else {
+            $chatService->sendMessage($this->chatId, auth()->id(), $this->message);  // Send text message
+        }
+
         $this->message = "";
     }
 
@@ -49,7 +65,7 @@ class SellerChatComponent extends Component
             $this->chats[] = $data['message'];
         }
     }
-    
+
     #[Layout('layouts.app')]
     public function render()
     {
