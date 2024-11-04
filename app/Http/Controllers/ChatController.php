@@ -7,6 +7,7 @@ use App\Models\Chat;
 use App\Models\Service;
 use App\Models\User;
 use App\Models\Media;
+use App\Models\Message;
 use App\Services\ChatService;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Auth;
@@ -77,7 +78,9 @@ class ChatController extends Controller
 
         $chat = $this->chatService->findChatApi($serviceId, $buyerId, $sellerId);
 
-        return response()->json($chat, 200);
+        return response()->json([
+            'chat' => $chat,
+        ], 200);
     }
 
     public function sendMessage(Request $request)
@@ -127,38 +130,23 @@ class ChatController extends Controller
         $userId = $request->input('user_id');
 
         $chats = Chat::where('buyer_id', $userId)
-            ->orWhere('seller_id', $userId)
-            ->with('service:id,name,description,price')
-            ->orderBy('created_at', 'desc')
-            ->paginate(15, ['id', 'service_id']);
+        ->orWhere('seller_id', $userId)
+        ->with(['service:id,name,description,price', 'latestMessage']) // Eager load latestMessage
+        ->orderByDesc(
+            Message::select('created_at')
+                ->whereColumn('chat_id', 'chats.id')
+                ->latest()
+                ->take(1)
+        )
+        ->paginate(15, ['id', 'service_id']);
 
         return response()->json($chats, 200);
     }
 
-    // public function getMessages(Request $request){
-    //     $chatId = $request->input('chat_id');
-    //     $messages = $this->chatService->getMessagesApi($chatId);
-
-    //     $formattedMessages = $messages->getCollection()->transform(function ($message) {
-    //         return [
-    //             'sender_id' => $message->sender_id,
-    //             'message' => $message->message,
-    //             'created_at' => $message->created_at->toIso8601String(),
-    //         ];
-    //     });
-
-    //     return response()->json([
-    //         'current_page' => $messages->currentPage(),
-    //         'data' => $formattedMessages,
-    //         'last_page' => $messages->lastPage(),
-    //         'per_page' => $messages->perPage(),
-    //         'total' => $messages->total(),
-    //     ], 200);
-    // }
-
-    public function getMessages(Request $request) {
+    public function getMessages(Request $request)
+    {
         $chatId = $request->input('chat_id');
-        // Get messages with media relationships
+        // Get messages with media and sender relationships
         $messages = $this->chatService->getMessagesApi($chatId);
 
         $formattedMessages = $messages->transform(function ($message) {
@@ -174,9 +162,10 @@ class ChatController extends Controller
 
             return [
                 'sender_id' => $message->sender_id,
+                'sender_name' => $message->sender->name,
                 'message' => $message->message,
                 'created_at' => $message->created_at->toIso8601String(),
-                'media' => $media, // Include media in the response
+                'media' => $media,
             ];
         });
 
@@ -188,5 +177,6 @@ class ChatController extends Controller
             'total' => $messages->total(),
         ], 200);
     }
+
 
 }
