@@ -40,7 +40,14 @@ class ChatComponent extends Component
         $this->chatId = $this->chat->id;
         $this->chats = $this->chatService->getMessages($this->chatId)->toArray();
     }
+
+    public function updatedMessage(ChatService $chatService)
+    {
+        // Send typing event
+        $chatService->sendMessageTyping($this->chatId, auth()->id());
+    }
     
+
     public function submitMessage(ChatService $chatService) {
         // Use the chatService for the message submission
         $chatService->sendMessage($this->chatId, auth()->id(), $this->message);
@@ -51,12 +58,19 @@ class ChatComponent extends Component
     {
         return [
             "echo-private:chat.{$this->chatId},NewMessageEvent" => 'listenForMessage',
+            "echo-private:chat.{$this->chatId},MessageTypingEvent" => 'listenForTyping',
         ];
     }
 
     public function listenForMessage($data) {
         if(isset($data['message'])) {
             $this->chats[] = $data['message'];
+        }
+    }
+
+    public function listenForTyping($data) {
+        if(isset($data['senderId']) && $data['senderId'] != auth()->id()) {
+            $this->dispatch('is-typing', isTyping: true); 
         }
     }
 

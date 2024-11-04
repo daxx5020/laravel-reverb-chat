@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Events\MessageTypingEvent;
 use App\Events\NewMessageEvent;
 use App\Models\Chat;
 use App\Models\Message;
@@ -70,6 +71,15 @@ class ChatService
     public function getMessages($chatId)
     {
         return Message::where('chat_id', $chatId)->get();
+    }
+
+    /**
+     * Send Message Typing Event
+    */
+    public function sendMessageTyping($chatId, $senderId)
+    {
+        // Trigger the event
+        event(new MessageTypingEvent($chatId, $senderId));
     }
 
 
