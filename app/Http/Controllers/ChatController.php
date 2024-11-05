@@ -189,4 +189,15 @@ class ChatController extends Controller
         ], 200);
     }
 
+    public function sendMessageTyping(Chat $chat)
+    {
+        $auth = auth()->user();
+        $this->chatService->sendMessageTyping($chat->id, $auth->id);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Message sent successfully.',
+        ], 200);
+    }
 }
+

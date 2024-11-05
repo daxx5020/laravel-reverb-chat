@@ -39,6 +39,12 @@ class SellerChatComponent extends Component
         $this->chats = $this->chatService->getMessages($this->chatId)->toArray();
     }
 
+    public function updatedMessage(ChatService $chatService)
+    {
+        // Send typing event
+        $chatService->sendMessageTyping($this->chatId, auth()->id());
+    }
+    
     public function submitMessage(ChatService $chatService) {
         // Use the chatService for the message submission
         if ($this->image) {
@@ -57,6 +63,7 @@ class SellerChatComponent extends Component
     {
         return [
             "echo-private:chat.{$this->chatId},NewMessageEvent" => 'listenForMessage',
+            "echo-private:chat.{$this->chatId},MessageTypingEvent" => 'listenForTyping',
         ];
     }
 
@@ -66,6 +73,12 @@ class SellerChatComponent extends Component
         }
     }
 
+    public function listenForTyping($data) {
+        if(isset($data['senderId']) && $data['senderId'] != auth()->id()) {
+            $this->dispatch('is-typing', isTyping: true); 
+        }
+    }
+    
     #[Layout('layouts.app')]
     public function render()
     {

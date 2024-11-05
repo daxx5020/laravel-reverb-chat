@@ -20,6 +20,26 @@ class ChatListComponent extends Component
             ->get();
     }
 
+    /**
+     * Get the channels the event should broadcast on.
+    */
+    public function getListeners()
+    {
+        $authId = auth()->id();
+
+        return [
+            "echo-private:user.{$authId},NewMessageEvent" => 'listenForMessage',
+        ];
+    }
+
+    public function listenForMessage($data) {
+        $this->chats = Chat::with(['buyer', 'seller', 'service'])
+        ->whereHas('messages')
+        ->where('buyer_id', auth()->id())
+        ->orWhere('seller_id', auth()->id())
+        ->get();
+    }
+
     #[Layout('layouts.app')]
     public function render()
     {

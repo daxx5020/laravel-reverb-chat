@@ -1,8 +1,11 @@
 <div class="max-w-md mx-auto mt-6 bg-white rounded-2xl shadow-sm">
     <!-- Back Button -->
     <div class="p-4 border-b">
-        <a href="{{ url()->previous() }}" class="inline-flex items-center text-primary hover:text-primary/90 font-medium transition-colors" wire:navigate>
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <a href="{{ url()->previous() }}"
+            class="inline-flex items-center text-primary hover:text-primary/90 font-medium transition-colors"
+            wire:navigate>
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1.5" fill="none" viewBox="0 0 24 24"
+                stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
             </svg>
             Back
@@ -31,7 +34,7 @@
     </div>
 
     <!-- Chat Messages -->
-    <div class="px-4 space-y-4 h-[400px] overflow-y-auto border-t pt-4" id="chat-messages">
+    <div class="px-4 space-y-4 h-[400px] overflow-y-auto border-t py-4" id="chat-messages">
 
         @php($chatDates = [])
 
@@ -79,23 +82,51 @@
             <span class="text-xs mt-1 opacity-70">{{ \Carbon\Carbon::parse($chat['created_at'])->format('g:i A') }}</span>
         </div>
         @empty
-            <div class="flex flex-col items-center justify-center h-full text-gray-500">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mb-2 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                </svg>
-                <p class="text-sm font-medium">No messages yet</p>
-                <p class="text-xs">Start the conversation!</p>
-            </div>
+        <div class="flex flex-col items-center justify-center h-full text-gray-500">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mb-2 text-gray-400" fill="none" viewBox="0 0 24 24"
+                stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                    d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+            </svg>
+            <p class="text-sm font-medium">No messages yet</p>
+            <p class="text-xs">Start the conversation!</p>
+        </div>
         @endforelse
 
+        <!-- Typing Indicator -->
+        <div x-data="{
+                    show: false,
+                    typing: false,
+                    listenForTypingEvent() {
+                        $wire.on('is-typing', (event) => {
+                            if (event.isTyping) {
+                                this.isTyping();
+                            }
+                        });
+                    },
+                    isTyping() {
+                        this.show = true;
+                        this.typing = true;
+                        if (this.typing) {
+                            setTimeout(() => {
+                                this.typing = false;
+                                this.show = false;
+                            }, 2000);
+                        }
+                    }
+                }" x-init="listenForTypingEvent">
+            <div x-show="show" class="w-max p-3 rounded-2xl break-words bg-gray-100 text-gray-700 rounded-bl-sm">
+                <p class="text-sm italic">Typing ...</p>
+            </div>
         </div>
 
+    </div>
 
     <!-- Message Input -->
-    <div class="p-4 border-t mt-4">
+    <div class="p-4 border-t">
         <form wire:submit.prevent="submitMessage" class="flex items-center gap-2">
             <input
-                wire:model="message"
+                wire:model.live.debounce.250ms="message"
                 type="text"
                 placeholder="Type your message..."
                 class="flex-1 px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-full text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/30 transition-colors"
@@ -135,6 +166,7 @@
     </div>
 </div>
 
+@script
 <script>
     // Auto-scroll to bottom of chat messages
     document.addEventListener('livewire:load', function () {
@@ -144,6 +176,11 @@
         Livewire.hook('message.processed', () => {
             messagesContainer.scrollTop = messagesContainer.scrollHeight;
         });
+
+        Livewire.on('is-typing', (event) => {
+            console.log("New Event:", event);
+        });
     });
+
 </script>
-`
+@endscript
