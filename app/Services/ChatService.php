@@ -97,6 +97,7 @@ class ChatService
         $chat = Chat::where('service_id', $serviceId)
         ->where('buyer_id', $buyerId)
         ->where('seller_id', $sellerId)
+        ->with('service')
         ->first();
 
         if ($chat) {
@@ -145,7 +146,7 @@ class ChatService
 
     public function getMessagesApi($chatId)
     {
-        return Message::with('media') // Eager load media
+        return Message::with('media','sender') // Eager load media
             ->where('chat_id', $chatId)
             ->orderBy('created_at', 'desc')
             ->select( 'id', 'sender_id', 'message', 'created_at', 'chat_id') // Include chat_id if needed
