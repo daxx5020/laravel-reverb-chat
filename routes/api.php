@@ -17,3 +17,4 @@ Route::post('/create-chat', [ChatController::class, 'createChat']);
 Route::post('/send-message', [ChatController::class, 'sendMessage']);
 Route::get('/chat-list', [ChatController::class, 'chatList']);
 Route::get('/get-message', [ChatController::class, 'getMessages']);
+Route::post('/is-typing/{chat}', [ChatController::class, 'sendMessageTyping']);

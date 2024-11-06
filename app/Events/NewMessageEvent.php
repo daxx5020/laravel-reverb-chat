@@ -9,6 +9,7 @@ use Illuminate\Broadcasting\PrivateChannel;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\Log;
 
 class NewMessageEvent implements ShouldBroadcast
 {
@@ -29,8 +30,18 @@ class NewMessageEvent implements ShouldBroadcast
      *
      * @return array<int, \Illuminate\Broadcasting\Channel>
      */
-    public function broadcastOn(): Channel
+    public function broadcastOn()
     {
-        return new PrivateChannel('chat.'. $this->message->chat_id);
+        $channels = [];
+
+        $channels[] = new PrivateChannel('chat.'.$this->message->chat_id);
+        if(isset($this->message->chat)) {
+            $userId = ($this->message->sender_id == $this->message->chat->buyer_id ? $this->message->chat->seller_id : $this->message->chat->buyer_id);
+            $channels[] = new PrivateChannel('user.'. $userId);
+        }
+
+        Log::info('Broadcasting NewMessageEvent', ['channels' => $channels]);
+
+        return $channels;
     }
 }

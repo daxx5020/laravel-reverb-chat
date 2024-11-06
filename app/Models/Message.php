@@ -23,6 +23,16 @@ class Message extends Model
     ];
 
     /**
+     * Get the chat that the message belongs to.
+     * 
+     * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
+    */
+    public function chat(): BelongsTo
+    {
+        return $this->belongsTo(Chat::class);
+    }
+
+    /**
      * Get the sender of the message.
      *
      * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
