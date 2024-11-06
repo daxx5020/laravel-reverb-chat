@@ -5,18 +5,24 @@ namespace App\Livewire;
 use App\Events\NewMessageEvent;
 use App\Models\Chat;
 use App\Models\Service;
-use App\Models\User;
 use App\Services\ChatService;
 use Livewire\Attributes\Layout;
-use Livewire\Attributes\On;
 use Livewire\Component;
+use Livewire\WithFileUploads;
 
 class ChatComponent extends Component
 {
+    use WithFileUploads;
+
     public $message = "";
     public $chats = [];
     public $serviceId;
     public $chatId;
+    public $image; // Use $image instead of $imagePath
+
+    protected $rules = [
+        'image' => 'nullable|image|max:1024', // 1MB Max
+    ];
 
     public Service $service;
     private ChatService $chatService;
@@ -30,7 +36,7 @@ class ChatComponent extends Component
 
         // Use IDs as public properties for Livewire compatibility
         $this->serviceId = $service->id;
-        
+
         $this->chat = $this->chatService->findChat(
             $service->id,
             auth()->id(),
@@ -38,12 +44,27 @@ class ChatComponent extends Component
         );
 
         $this->chatId = $this->chat->id;
+        // Fetch messages along with their media
         $this->chats = $this->chatService->getMessages($this->chatId)->toArray();
     }
+
+    public function updatedMessage(ChatService $chatService)
+    {
+        // Send typing event
+        $chatService->sendMessageTyping($this->chatId, auth()->id());
+    }
     
+
     public function submitMessage(ChatService $chatService) {
         // Use the chatService for the message submission
-        $chatService->sendMessage($this->chatId, auth()->id(), $this->message);
+        if ($this->image) {
+            $imagePath = $this->image->store('chat_images', 'public');
+            $chatService->sendMessage($this->chatId, auth()->id(), null, $imagePath);
+            $this->image = null;
+        } else {
+            $chatService->sendMessage($this->chatId, auth()->id(), $this->message);
+        }
+
         $this->message = "";
     }
 
@@ -51,12 +72,19 @@ class ChatComponent extends Component
     {
         return [
             "echo-private:chat.{$this->chatId},NewMessageEvent" => 'listenForMessage',
+            "echo-private:chat.{$this->chatId},MessageTypingEvent" => 'listenForTyping',
         ];
     }
 
     public function listenForMessage($data) {
         if(isset($data['message'])) {
             $this->chats[] = $data['message'];
+        }
+    }
+
+    public function listenForTyping($data) {
+        if(isset($data['senderId']) && $data['senderId'] != auth()->id()) {
+            $this->dispatch('is-typing', isTyping: true); 
         }
     }
 

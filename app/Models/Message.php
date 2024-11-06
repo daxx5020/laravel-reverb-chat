@@ -23,6 +23,16 @@ class Message extends Model
     ];
 
     /**
+     * Get the chat that the message belongs to.
+     * 
+     * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
+    */
+    public function chat(): BelongsTo
+    {
+        return $this->belongsTo(Chat::class);
+    }
+
+    /**
      * Get the sender of the message.
      *
      * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
@@ -40,5 +50,15 @@ class Message extends Model
     public function isRead(): bool
     {
         return !is_null($this->read_at);
+    }
+
+    public function getImageUrlAttribute()
+    {
+        return $this->image_path ? asset("storage/{$this->image_path}") : null;
+    }
+
+    public function media()
+    {
+        return $this->morphMany(Media::class, 'mediaable');
     }
 }
