@@ -11,6 +11,8 @@ use App\Models\Message;
 use App\Services\ChatService;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Http\JsonResponse;
 
 class ChatController extends Controller
 {
@@ -70,29 +72,76 @@ class ChatController extends Controller
         return response()->json($request->user());
     }
 
-    public function createChat(Request $request){
+    public function createChat(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'service_id' => 'required|integer|exists:services,id',
+            'buyer_id' => 'required|integer|exists:users,id',
+            'seller_id' => 'required|integer|exists:users,id',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation error.',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
 
         $serviceId = $request->input('service_id');
         $buyerId = $request->input('buyer_id');
         $sellerId = $request->input('seller_id');
 
-        $chat = $this->chatService->findChatApi($serviceId, $buyerId, $sellerId);
+        try {
+            // Step 2: Try to find or create the chat
+            $chat = $this->chatService->findChatApi($serviceId, $buyerId, $sellerId);
 
-        return response()->json([
-            'chat' => $chat,
-        ], 200);
+            // Step 3: Return successful response if chat is found or created
+            return response()->json([
+                'success' => true,
+                'message' => $chat->wasRecentlyCreated
+                    ? 'New chat created successfully.'
+                    : 'Chat retrieved successfully.',
+                'chat' => $chat,
+            ], 200);
+
+        } catch (\Exception $e) {
+            // Step 4: Handle unexpected errors gracefully
+            return response()->json([
+                'success' => false,
+                'message' => 'An error occurred while processing your request.',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
     }
 
-    public function sendMessage(Request $request)
+    public function sendMessage(Request $request): JsonResponse
     {
+        $validator = Validator::make($request->all(), [
+            'chat_id' => 'required|integer|exists:chats,id',
+            'sender_id' => 'required|integer|exists:users,id',
+            'message' => 'required|string|max:5000',
+            'media.*' => 'file|max:15120',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation error.',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
         $chatId = $request->input('chat_id');
         $senderId = $request->input('sender_id');
         $messageContent = $request->input('message');
 
         $mediaPaths = [];
 
+        // Step 2: Handle Media Files if Provided
         if ($request->hasFile('media')) {
             $files = is_array($request->file('media')) ? $request->file('media') : [$request->file('media')];
+
             foreach ($files as $file) {
                 $fileType = $file->getMimeType();
                 $fileExtension = $file->getClientOriginalExtension();
@@ -105,7 +154,8 @@ class ChatController extends Controller
                 } elseif (in_array($fileExtension, ['pdf', 'doc', 'docx'])) {
                     $mediaType = 'document';
                 } else {
-                    continue; // Skip unsupported file types
+                    // Skip unsupported file types
+                    continue;
                 }
 
                 // Store the file and get the path
@@ -119,64 +169,123 @@ class ChatController extends Controller
             }
         }
 
-        // Call the service to handle the message storage
-        $message = $this->chatService->sendMessageApi($chatId, $senderId, $messageContent, $mediaPaths);
+        try {
+            $message = $this->chatService->sendMessageApi($chatId, $senderId, $messageContent, $mediaPaths);
 
-        return response()->json($message, 201);
+            return response()->json([
+                'success' => true,
+                'message' => 'Message sent successfully.',
+                'data' => $message,
+            ], 201);
+
+        } catch (\Exception $e) {
+
+            return response()->json([
+                'success' => false,
+                'message' => 'An error occurred while sending the message.',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
     }
 
 
-    public function chatList(Request $request){
+    public function chatList(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'user_id' => 'required|integer|exists:users,id',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation error.',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
         $userId = $request->input('user_id');
 
-        $chats = Chat::where('buyer_id', $userId)
-        ->orWhere('seller_id', $userId)
-        ->with(['service:id,name,description,price', 'latestMessage']) // Eager load latestMessage
-        ->orderByDesc(
-            Message::select('created_at')
-                ->whereColumn('chat_id', 'chats.id')
-                ->latest()
-                ->take(1)
-        )
-        ->paginate(15, ['id', 'service_id']);
+        try {
+            $chats = Chat::where('buyer_id', $userId)
+                ->orWhere('seller_id', $userId)
+                ->with(['service:id,name,description,price', 'latestMessage'])
+                ->orderByDesc(
+                    Message::select('created_at')
+                        ->whereColumn('chat_id', 'chats.id')
+                        ->latest()
+                        ->take(1)
+                )
+                ->paginate(15, ['id', 'service_id']);
 
-        return response()->json($chats, 200);
+            return response()->json([
+                'success' => true,
+                'message' => 'Chat list retrieved successfully.',
+                'data' => $chats,
+            ], 200);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'An error occurred while retrieving the chat list.',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
     }
 
-    public function getMessages(Request $request)
+    public function getMessages(Request $request): JsonResponse
     {
-        $chatId = $request->input('chat_id');
-        // Get messages with media and sender relationships
-        $messages = $this->chatService->getMessagesApi($chatId);
+        $validator = Validator::make($request->all(), [
+            'chat_id' => 'required|integer|exists:chats,id',
+        ]);
 
-        $formattedMessages = $messages->transform(function ($message) {
-            // Format media for the response
-            $media = $message->media->map(function ($mediaItem) {
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation error.',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        $chatId = $request->input('chat_id');
+
+        try {
+            $messages = $this->chatService->getMessagesApi($chatId);
+
+            $formattedMessages = $messages->transform(function ($message) {
+                $media = $message->media->map(function ($mediaItem) {
+                    return [
+                        'file_path' => $mediaItem->url,
+                        'file_type' => $mediaItem->file_type,
+                        'mime_type' => $mediaItem->mime_type,
+                        'size' => $mediaItem->size,
+                    ];
+                });
+
                 return [
-                    'file_path' => $mediaItem->url,
-                    'file_type' => $mediaItem->file_type,
-                    'mime_type' => $mediaItem->mime_type,
-                    'size' => $mediaItem->size,
+                    'sender_id' => $message->sender_id,
+                    'sender_name' => $message->sender->name,
+                    'message' => $message->message,
+                    'created_at' => $message->created_at->toIso8601String(),
+                    'media' => $media,
                 ];
             });
 
-            return [
-                'sender_id' => $message->sender_id,
-                'sender_name' => $message->sender->name,
-                'message' => $message->message,
-                'created_at' => $message->created_at->toIso8601String(),
-                'media' => $media,
-            ];
-        });
+            return response()->json([
+                'success' => true,
+                'message' => 'Messages retrieved successfully.',
+                'current_page' => $messages->currentPage(),
+                'data' => $formattedMessages,
+                'last_page' => $messages->lastPage(),
+                'per_page' => $messages->perPage(),
+                'total' => $messages->total(),
+            ], 200);
 
-        return response()->json([
-            'current_page' => $messages->currentPage(),
-            'data' => $formattedMessages,
-            'last_page' => $messages->lastPage(),
-            'per_page' => $messages->perPage(),
-            'total' => $messages->total(),
-        ], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'An error occurred while retrieving messages.',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
     }
-
-
 }
