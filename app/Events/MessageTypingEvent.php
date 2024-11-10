@@ -21,7 +21,7 @@ class MessageTypingEvent implements ShouldBroadcast
      * Create a new event instance.
      */
     public function __construct(
-        $chatId,
+        $chatId,    
         $senderId
     )
     {

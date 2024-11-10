@@ -6,6 +6,7 @@ use App\Events\MessageTypingEvent;
 use App\Events\NewMessageEvent;
 use App\Models\Chat;
 use App\Models\Message;
+use App\Models\User;
 
 class ChatService
 {
@@ -64,6 +65,52 @@ class ChatService
 
         // Trigger the NewMessageEvent
         event(new NewMessageEvent($message));
+
+        $chat = $message->chat;
+        $recipientId = ($senderId == $chat->buyer_id) ? $chat->seller_id : $chat->buyer_id;
+        $recipient = User::find($recipientId);
+
+        if ($recipient && $recipient->fcm_token) {
+            // Send FCM notification
+            $this->sendFcmNotification($recipient->fcm_token, 'New Message', $message->message ?? 'You have a new image message');
+        }
+    }
+
+    /**
+     * Send FCM Notification
+     */
+    protected function sendFcmNotification($token, $title, $body)
+    {
+        $fcmUrl = 'https://fcm.googleapis.com/v1/projects/push-notification-a5f33/messages:send';
+        $serverKey = 'ya29.a0AeDClZB6oFRPfYBoHuABjKgX6Mml4ocZx6Ymc80AELvwZyHsYumtZ2ToLh5V2xLO2FFAVUEDoXWptU-HgMYUHqSGF4bkn0LZDtjtGS6nFUYSHevXIjGARyJi2QzYbU4e-nSEnucqg0jZlk53ZPEDKgzM_iMDOtkxtQUI-7zIaCgYKARMSARISFQHGX2Mi5E24BSGNkUA0Y80VIGvt9Q0175';  // Replace with your FCM server key
+
+        $notification = [
+            'message' => [
+                'token' => $token,
+                'notification' => [
+                    'title' => $title,
+                    'body' => $body,
+                ],
+            ],
+        ];
+
+        $headers = [
+            'Authorization: Bearer ' . $serverKey,
+            'Content-Type: application/json',
+        ];
+
+        $ch = curl_init();
+        curl_setopt($ch, CURLOPT_URL, $fcmUrl);
+        curl_setopt($ch, CURLOPT_POST, true);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($notification));
+
+        $result = curl_exec($ch);
+        if ($result === FALSE) {
+            Log::error('FCM Send Error: ' . curl_error($ch));
+        }
+        curl_close($ch);
     }
 
     /**
