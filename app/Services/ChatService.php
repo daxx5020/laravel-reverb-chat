@@ -94,29 +94,36 @@ class ChatService
 
     public function findChatApi($serviceId, $buyerId, $sellerId): Chat
     {
+        // Check if chat already exists
         $chat = Chat::where('service_id', $serviceId)
-        ->where('buyer_id', $buyerId)
-        ->where('seller_id', $sellerId)
-        ->with('service')
-        ->first();
+                    ->where('buyer_id', $buyerId)
+                    ->where('seller_id', $sellerId)
+                    ->with('service')
+                    ->first();
 
+        // If found, return existing chat
         if ($chat) {
+            $chat->wasRecentlyCreated = false;
             return $chat;
         }
 
-        return $this->createChat($serviceId, $buyerId, $sellerId);
+        // If not found, create a new chat
+        return $this->createChatApi($serviceId, $buyerId, $sellerId);
     }
 
     public function createChatApi($serviceId, $buyerId, $sellerId): Chat
     {
-        return Chat::create([
+        $chat = Chat::create([
             'service_id' => $serviceId,
             'buyer_id' => $buyerId,
-            'seller_id' => $sellerId
+            'seller_id' => $sellerId,
         ]);
+
+        $chat->wasRecentlyCreated = true;
+        return $chat;
     }
 
-    public function sendMessageApi($chatId, $senderId, $messageContent, $mediaPaths = [])
+    public function sendMessageApi($chatId, $senderId, $messageContent, $mediaPaths = []): Message
     {
         // Create the message
         $message = Message::create([
@@ -146,10 +153,10 @@ class ChatService
 
     public function getMessagesApi($chatId)
     {
-        return Message::with('media','sender') // Eager load media
+        return Message::with(['media', 'sender'])
             ->where('chat_id', $chatId)
             ->orderBy('created_at', 'desc')
-            ->select( 'id', 'sender_id', 'message', 'created_at', 'chat_id') // Include chat_id if needed
+            ->select('id', 'sender_id', 'message', 'created_at', 'chat_id')
             ->paginate(15);
     }
 }
