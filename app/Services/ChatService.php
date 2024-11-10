@@ -7,6 +7,7 @@ use App\Events\NewMessageEvent;
 use App\Models\Chat;
 use App\Models\Message;
 use App\Models\User;
+use Pusher\Pusher;
 
 class ChatService
 {
@@ -205,5 +206,25 @@ class ChatService
             ->orderBy('created_at', 'desc')
             ->select('id', 'sender_id', 'message', 'created_at', 'chat_id')
             ->paginate(15);
+    }
+
+    public function generatePusherToken($user, $socketId, $channelName)
+    {
+        $pusher = new Pusher(
+            config('broadcasting.connections.reverb.key'),
+            config('broadcasting.connections.reverb.secret'),
+            config('broadcasting.connections.reverb.app_id'),
+            // [
+            //     'cluster' => config('broadcasting.connections.reverb.options.cluster'),
+            //     'useTLS' => true
+            // ]
+        );
+
+        $auth = $pusher->socket_auth($channelName, $socketId);
+
+        if(!$auth){
+            return $auth;
+        }
+        return ($auth);
     }
 }

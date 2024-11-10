@@ -302,5 +302,37 @@ class ChatController extends Controller
 
         return response()->json(['message' => 'FCM token saved successfully']);
     }
+
+    public function authenticate(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'socket_id' => 'required|string',
+            'channel_name' => 'required|string',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation error.',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        $user = Auth::user();
+        if (!$user) {
+            return response()->json(['message' => 'Unauthenticated'], 401);
+        }
+    
+        $socketId = $request->input('socket_id');
+        $channelName = $request->input('channel_name');
+
+        $auth = $this->chatService->generatePusherToken($user, $socketId, $channelName);
+        if(!$auth){
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+
+        return response()->json(json_decode($auth));
+    
+    }
 }
 
