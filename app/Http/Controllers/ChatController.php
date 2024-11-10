@@ -288,5 +288,19 @@ class ChatController extends Controller
             ], 500);
         }
     }
+
+
+    public function saveFcmToken(Request $request)
+    {
+        $request->validate([
+            'fcm_token' => 'required|string',
+        ]);
+
+        $user = Auth::user();
+        $user->fcm_token = $request->fcm_token;
+        $user->save();
+
+        return response()->json(['message' => 'FCM token saved successfully']);
+    }
 }
 
