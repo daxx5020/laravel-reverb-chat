@@ -76,8 +76,6 @@ class ChatController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'service_id' => 'required|integer|exists:services,id',
-            'buyer_id' => 'required|integer|exists:users,id',
-            'seller_id' => 'required|integer|exists:users,id',
         ]);
 
         if ($validator->fails()) {
@@ -88,30 +86,29 @@ class ChatController extends Controller
             ], 422);
         }
 
-        $serviceId = $request->input('service_id');
-        $buyerId = $request->input('buyer_id');
-        $sellerId = $request->input('seller_id');
+        $buyer = auth('api')->user();
+        $buyerId = $buyer->id;
+
+        $service = Service::findOrFail($request->input('service_id'));
+        $sellerId = $service->user->id;
 
         try {
-            // Step 2: Try to find or create the chat
-            $chat = $this->chatService->findChatApi($serviceId, $buyerId, $sellerId);
+            $chat = $this->chatService->findChatApi($service->id, $buyerId, $sellerId);
 
-            // Step 3: Return successful response if chat is found or created
             return response()->json([
                 'success' => true,
                 'message' => $chat->wasRecentlyCreated
                     ? 'New chat created successfully.'
                     : 'Chat retrieved successfully.',
                 'chat' => $chat,
-            ], 200);
+            ], 200,['Content-Type' => 'application/json']);
 
         } catch (\Exception $e) {
-            // Step 4: Handle unexpected errors gracefully
             return response()->json([
                 'success' => false,
                 'message' => 'An error occurred while processing your request.',
                 'error' => $e->getMessage(),
-            ], 500);
+            ], 500,['Content-Type' => 'application/json']);
         }
     }
 
@@ -119,7 +116,6 @@ class ChatController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'chat_id' => 'required|integer|exists:chats,id',
-            'sender_id' => 'required|integer|exists:users,id',
             'message' => 'required|string|max:5000',
             'media.*' => 'file|max:15120',
         ]);
@@ -133,7 +129,7 @@ class ChatController extends Controller
         }
 
         $chatId = $request->input('chat_id');
-        $senderId = $request->input('sender_id');
+        $senderId = auth('api')->user()->id;
         $messageContent = $request->input('message');
 
         $mediaPaths = [];
@@ -191,37 +187,25 @@ class ChatController extends Controller
 
     public function chatList(Request $request): JsonResponse
     {
-        $validator = Validator::make($request->all(), [
-            'user_id' => 'required|integer|exists:users,id',
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Validation error.',
-                'errors' => $validator->errors(),
-            ], 422);
-        }
-
-        $userId = $request->input('user_id');
-
         try {
-            $chats = Chat::where('buyer_id', $userId)
-                ->orWhere('seller_id', $userId)
-                ->with(['service:id,name,description,price', 'latestMessage'])
-                ->orderByDesc(
-                    Message::select('created_at')
-                        ->whereColumn('chat_id', 'chats.id')
-                        ->latest()
-                        ->take(1)
-                )
-                ->paginate(15, ['id', 'service_id']);
+            // Retrieve the authenticated user
+            $user = auth('api')->user();
+
+            if (!$user) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Authentication error.',
+                ], 401);
+            }
+
+            // Fetch the chat list using a dedicated function
+            $chats = $this->chatService->getChatList($user->id);
 
             return response()->json([
                 'success' => true,
                 'message' => 'Chat list retrieved successfully.',
                 'data' => $chats,
-            ], 200);
+            ], 200,['Content-Type' => 'application/json']);
 
         } catch (\Exception $e) {
             return response()->json([
@@ -251,7 +235,8 @@ class ChatController extends Controller
         try {
             $messages = $this->chatService->getMessagesApi($chatId);
 
-            $formattedMessages = $messages->transform(function ($message) {
+            // Map the messages without losing pagination structure
+            $formattedMessages = $messages->getCollection()->map(function ($message) {
                 $media = $message->media->map(function ($mediaItem) {
                     return [
                         'file_path' => $mediaItem->url,
@@ -270,14 +255,13 @@ class ChatController extends Controller
                 ];
             });
 
+            // Update the paginated messages collection
+            $messages->setCollection($formattedMessages);
+
             return response()->json([
                 'success' => true,
                 'message' => 'Messages retrieved successfully.',
-                'current_page' => $messages->currentPage(),
-                'data' => $formattedMessages,
-                'last_page' => $messages->lastPage(),
-                'per_page' => $messages->perPage(),
-                'total' => $messages->total(),
+                'data' => $messages,
             ], 200);
 
         } catch (\Exception $e) {
@@ -305,24 +289,23 @@ class ChatController extends Controller
 
     public function authenticate(Request $request)
     {
-        $validator = Validator::make($request->all(), [
-            'socket_id' => 'required|string',
-            'channel_name' => 'required|string',
-        ]);
+        // $validator = Validator::make($request->all(), [
+        //     'socket_id' => 'required|string',
+        //     'channel_name' => 'required|string',
+        // ]);
 
-        if ($validator->fails()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Validation error.',
-                'errors' => $validator->errors(),
-            ], 422);
-        }
-
-        $user = Auth::user();
+        // if ($validator->fails()) {
+        //     return response()->json([
+        //         'success' => false,
+        //         'message' => 'Validation error.',
+        //         'errors' => $validator->errors(),
+        //     ], 422);
+        // }
+        $user = auth('api')->user();
         if (!$user) {
             return response()->json(['message' => 'Unauthenticated'], 401);
         }
-    
+
         $socketId = $request->input('socket_id');
         $channelName = $request->input('channel_name');
 
@@ -332,7 +315,7 @@ class ChatController extends Controller
         }
 
         return response()->json(json_decode($auth));
-    
+
     }
 }
 

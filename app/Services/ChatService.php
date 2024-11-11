@@ -171,6 +171,23 @@ class ChatService
         return $chat;
     }
 
+    public function getChatList(int $userId)
+    {
+        return Chat::where(function ($query) use ($userId) {
+                $query->where('buyer_id', $userId)
+                      ->orWhere('seller_id', $userId);
+            })
+            ->whereHas('messages') // Filter only chats with messages
+            ->with(['service:id,name,description,price', 'latestMessage'])
+            ->orderByDesc(
+                Message::select('created_at')
+                    ->whereColumn('chat_id', 'chats.id')
+                    ->latest()
+                    ->take(1)
+            )
+            ->paginate(15, ['id', 'service_id']);
+    }
+
     public function sendMessageApi($chatId, $senderId, $messageContent, $mediaPaths = []): Message
     {
         // Create the message
