@@ -172,7 +172,7 @@ class ChatController extends Controller
                 'success' => true,
                 'message' => 'Message sent successfully.',
                 'data' => $message,
-            ], 201);
+            ], 201,['Content-Type' => 'application/json']);
 
         } catch (\Exception $e) {
 
